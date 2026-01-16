@@ -11,7 +11,19 @@ if _G.SystemMonitor then
 end
 
 _G.ngos = {}
-_G.ngos.version = "1.6.5"
+
+local function loadOSVersion()
+    if fs.exists("/etc/os.info") then
+        local f = fs.open("/etc/os.info", "r")
+        local content = f.readAll()
+        f.close()
+        local data = textutils.unserializeJSON(content)
+        return data and data.version or "Unknown"
+    end
+    return "Dev Build"
+end
+
+_G.ngos.version = loadOSVersion()
 
 local resources = { monitor = nil, speaker = nil }
 
