@@ -1,6 +1,6 @@
 local w, h = term.getSize()
 
-local MANIFEST_URL = "https://raw.githubusercontent.com/NeuGoga/ngos-repo/main/os_manifest.json"
+local MANIFEST_URL = "https://raw.githubusercontent.com/NeuGoga/cc-tweaked-ngos/main/os_manifest.json"
 local VERSION_FILE = "/etc/os.info"
 
 -- COLORS
