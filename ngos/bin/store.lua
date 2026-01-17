@@ -2,13 +2,7 @@ local w, h = term.getSize()
 local DATABASE_FILE = "/etc/installed.json"
 local CATALOG_URL = "https://raw.githubusercontent.com/NeuGoga/cc-tweaked-ngos-apps/main/apps.json"
 
--- Colors
-local C_BG = colors.black
-local C_TAB_OFF = colors.gray
-local C_TAB_ON = colors.cyan
-local C_TEXT = colors.white
-local C_ACCENT = colors.lime
-local C_ERROR = colors.red
+local sha256 = require("ngos.lib.sha256")
 
 -- State
 local currentTab = "install" 
@@ -17,12 +11,9 @@ local remoteData = {}
 local selectedApp = nil
 local showModal = nil 
 
-local sha256 = require("ngos.lib.sha256")
-
 -- ==========================================
 -- Data Management
 -- ==========================================
-
 local function loadLocalDB()
     if fs.exists(DATABASE_FILE) then
         local f = fs.open(DATABASE_FILE, "r")
@@ -41,9 +32,11 @@ local function saveLocalDB()
 end
 
 local function fetchCatalog()
+    local T = ngos.theme
     term.setCursorPos(1, h)
-    term.setBackgroundColor(colors.blue)
+    term.setBackgroundColor(T.accent)
     term.clearLine()
+    term.setTextColor(T.bg)
     term.write(" Connecting to repository...")
     
     local response = http.get(CATALOG_URL)
@@ -59,28 +52,21 @@ end
 -- ==========================================
 -- Installation / Removal Logic
 -- ==========================================
-
 local function performInstall(appEntry)
-    term.setBackgroundColor(C_BG)
+    local T = ngos.theme
+    term.setBackgroundColor(T.bg)
     term.clear()
     term.setCursorPos(1,1)
+    term.setTextColor(T.text)
     print("Fetching manifest for " .. appEntry.name .. "...")
     
     local resp = http.get(appEntry.manifest)
-    if not resp then 
-        print("Error: Could not get manifest.")
-        sleep(2)
-        return 
-    end
+    if not resp then print("Error: Could not get manifest."); sleep(2); return end
     
     local manifest = textutils.unserializeJSON(resp.readAll())
     resp.close()
     
-    if not manifest or not manifest.files then
-        print("Error: Invalid manifest format.")
-        sleep(2)
-        return
-    end
+    if not manifest or not manifest.files then print("Error: Invalid manifest format."); sleep(2); return end
     
     local installDir = "/apps/" .. appEntry.id
     if not fs.exists(installDir) then fs.makeDir(installDir) end
@@ -89,7 +75,7 @@ local function performInstall(appEntry)
     local hasErrors = false
 
     for localName, remoteData in pairs(manifest.files) do
-        term.setTextColor(C_TEXT)
+        term.setTextColor(T.text)
         term.write(" - " .. localName .. " ")
         
         local url = ""
@@ -99,7 +85,7 @@ local function performInstall(appEntry)
             url = remoteData.url
             expectedHash = remoteData.sha256
         else
-            url = remoteData -- Old format (just a string URL)
+            url = remoteData
         end
         
         local fileResp = http.get(url)
@@ -108,24 +94,19 @@ local function performInstall(appEntry)
             fileResp.close()
             
             local verified = true
-            
             if expectedHash then
-                -- Normalize newlines before hashing to match online tools
                 local cleanContent = content:gsub("\r", "")
                 local actualHash = sha256.hex(cleanContent)
                 
                 if actualHash ~= expectedHash then
                     verified = false
                     hasErrors = true
-                    term.setTextColor(colors.red)
+                    term.setTextColor(T.err)
                     print("[HASH FAIL]")
-                    print("   Exp: " .. expectedHash:sub(1,8))
-                    print("   Got: " .. actualHash:sub(1,8))
                     sleep(1)
                 end
             else
-                -- Warn but allow
-                term.setTextColor(colors.gray)
+                term.setTextColor(T.header)
                 write("[UNSIGNED] ")
             end
             
@@ -138,20 +119,15 @@ local function performInstall(appEntry)
                 f.write(content)
                 f.close()
                 
-                if expectedHash then
-                    term.setTextColor(colors.lime)
-                    print("[OK]")
-                else
-                    term.setTextColor(colors.white)
-                    print("Saved")
-                end
+                term.setTextColor(T.accent)
+                print(expectedHash and "[OK]" or "Saved")
             else
-                term.setTextColor(colors.red)
-                print("Skipped (Security)")
+                term.setTextColor(T.err)
+                print("Skipped")
             end
         else
-            term.setTextColor(colors.red)
-            print("[DOWNLOAD FAIL]")
+            term.setTextColor(T.err)
+            print("[FAIL]")
             hasErrors = true
         end
     end
@@ -163,30 +139,30 @@ local function performInstall(appEntry)
             manifestUrl = appEntry.manifest
         }
         saveLocalDB()
-        term.setTextColor(colors.lime)
+        term.setTextColor(T.accent)
         print("\nSuccess! App installed.")
     else
-        term.setTextColor(colors.orange)
+        term.setTextColor(T.warn)
         print("\nFinished with errors.")
     end
-    
     sleep(1)
 end
 
 local function performVerify(appId, appEntry)
     if not appEntry then return end
+    local T = ngos.theme
 
-    term.setBackgroundColor(C_BG)
+    term.setBackgroundColor(T.bg)
     term.clear()
     term.setCursorPos(1,1)
+    term.setTextColor(T.text)
     
     local displayName = appEntry.name or appId
     print("Verifying " .. displayName .. "...")
     
     if not appEntry.manifestUrl then
-        print("Error: Corrupt install data (no URL).")
-        sleep(2)
-        return
+        print("Error: Corrupt install data.")
+        sleep(2); return
     end
     
     local resp = http.get(appEntry.manifestUrl)
@@ -203,62 +179,52 @@ local function performVerify(appId, appEntry)
     print("Checking Integrity...")
     
     for localName, remoteData in pairs(manifest.files) do
-        term.setTextColor(C_TEXT)
+        term.setTextColor(T.text)
         term.write(" " .. localName .. " ")
         
         local fullPath = fs.combine(installDir, localName)
-        
         local expectedHash = nil
-        if type(remoteData) == "table" then
-            expectedHash = remoteData.sha256
-        end
+        if type(remoteData) == "table" then expectedHash = remoteData.sha256 end
         
         if not fs.exists(fullPath) then
-            term.setTextColor(colors.red)
+            term.setTextColor(T.err)
             print("[MISSING]")
             issues = issues + 1
         elseif expectedHash then
             local f = fs.open(fullPath, "r")
             local content = f.readAll()
             f.close()
-            
             local cleanContent = content:gsub("\r", "")
             local actualHash = sha256.hex(cleanContent)
             
             if actualHash == expectedHash then
-                term.setTextColor(colors.lime)
+                term.setTextColor(T.accent)
                 print("[OK]")
             else
-                term.setTextColor(colors.red)
+                term.setTextColor(T.err)
                 print("[MODIFIED]")
                 issues = issues + 1
             end
         else
-            term.setTextColor(colors.gray)
+            term.setTextColor(T.header)
             print("[NO HASH]")
         end
     end
     
-    term.setTextColor(C_TEXT)
+    term.setTextColor(T.text)
     print(string.rep("-", 20))
     if issues == 0 then
-        term.setTextColor(colors.lime)
-        print("Integrity Verified.")
+        term.setTextColor(T.accent); print("Integrity Verified.")
     else
-        term.setTextColor(colors.red)
-        print("Found " .. issues .. " issues.")
-        print("Recommendation: Reinstall.")
+        term.setTextColor(T.err); print("Found " .. issues .. " issues.")
     end
-    
-    print("\nPress Enter to return.")
+    print("\nPress Enter.")
     read()
 end
 
 local function performUninstall(appId)
     local dir = "/apps/" .. appId
-    if fs.exists(dir) then
-        fs.delete(dir)
-    end
+    if fs.exists(dir) then fs.delete(dir) end
     localData[appId] = nil
     saveLocalDB()
 end
@@ -268,26 +234,33 @@ end
 -- ==========================================
 
 local function drawHeader()
+    local T = ngos.theme
+    local C_TAB_OFF = T.header
+    local C_TAB_ON = T.accent
+    local C_TEXT_ON = T.bg
+    local C_TEXT_OFF = T.headerText
+
     local leftBg = (currentTab == "install") and C_TAB_ON or C_TAB_OFF
-    paintutils.drawFilledBox(1, 1, w/2, 3, leftBg)
-    
     local rightBg = (currentTab == "installed") and C_TAB_ON or C_TAB_OFF
+    
+    paintutils.drawFilledBox(1, 1, w/2, 3, leftBg)
     paintutils.drawFilledBox((w/2)+1, 1, w, 3, rightBg)
     
     term.setCursorPos(math.floor(w/4)-4, 2)
     term.setBackgroundColor(leftBg)
-    term.setTextColor(C_BG)
+    term.setTextColor(currentTab == "install" and C_TEXT_ON or C_TEXT_OFF)
     term.write("Available")
     
     term.setCursorPos(math.floor(w*0.75)-4, 2)
     term.setBackgroundColor(rightBg)
-    term.setTextColor(C_BG)
+    term.setTextColor(currentTab == "installed" and C_TEXT_ON or C_TEXT_OFF)
     term.write("Installed")
 end
 
 local function drawList()
-    term.setBackgroundColor(C_BG)
-    paintutils.drawFilledBox(1, 4, w, h, C_BG)
+    local T = ngos.theme
+    term.setBackgroundColor(T.bg)
+    paintutils.drawFilledBox(1, 4, w, h, T.bg)
     
     local y = 5
     local listToDraw = {}
@@ -304,28 +277,27 @@ local function drawList()
     
     if #listToDraw == 0 then
         term.setCursorPos(3, 6)
-        term.setTextColor(colors.gray)
+        term.setTextColor(T.header)
         term.write(currentTab == "install" and "No new apps." or "No apps installed.")
     end
 
     for i, app in ipairs(listToDraw) do
         term.setCursorPos(2, y)
-        term.setBackgroundColor(C_BG)
+        term.setBackgroundColor(T.bg)
         
         if selectedApp and selectedApp.id == app.id then
-            term.setTextColor(C_ACCENT)
+            term.setTextColor(T.accent)
             term.write("> " .. app.name)
         else
-            term.setTextColor(C_TEXT)
+            term.setTextColor(T.text)
             term.write("  " .. app.name)
         end
         
         if currentTab == "install" then
             local btnText = "[ Install ]"
             app.btnX = w - #btnText - 1
-            
             term.setCursorPos(app.btnX, y)
-            term.setTextColor(colors.blue)
+            term.setTextColor(T.accent)
             term.write(btnText)
         else
             local txtRem = "[ Remove ]"
@@ -335,11 +307,11 @@ local function drawList()
             app.verX = app.remX - #txtVer - 1
             
             term.setCursorPos(app.verX, y)
-            term.setTextColor(colors.cyan)
+            term.setTextColor(T.accent)
             term.write(txtVer)
             
             term.setCursorPos(app.remX, y)
-            term.setTextColor(colors.red)
+            term.setTextColor(T.err)
             term.write(txtRem)
         end
         
@@ -351,15 +323,16 @@ end
 
 local function drawModal()
     if not showModal then return end
+    local T = ngos.theme
     
     local bw, bh = 26, 8
     local bx, by = math.floor((w-bw)/2), math.floor((h-bh)/2)
     
-    paintutils.drawFilledBox(bx, by, bx+bw, by+bh, colors.lightGray)
+    paintutils.drawFilledBox(bx, by, bx+bw, by+bh, T.header)
     
     term.setCursorPos(bx+2, by+2)
-    term.setBackgroundColor(colors.lightGray)
-    term.setTextColor(colors.black)
+    term.setBackgroundColor(T.header)
+    term.setTextColor(T.headerText)
     term.write(showModal.text)
     
     term.setCursorPos(bx+3, by+6)
@@ -376,63 +349,65 @@ end
 -- Main Loop
 -- ==========================================
 
-loadLocalDB()
-fetchCatalog()
+local function main()
+    loadLocalDB()
+    fetchCatalog()
 
-while true do
-    drawHeader()
-    local visibleList = drawList()
-    drawModal()
-    
-    local event, p1, p2, p3 = os.pullEvent()
-    
-    if event == "mouse_click" then
-        local btn, x, y = p1, p2, p3
+    while true do
+        drawHeader()
+        local visibleList = drawList()
+        drawModal()
         
-        if showModal then
-            local bw, bh = 26, 8
-            local bx, by = math.floor((w-bw)/2), math.floor((h-bh)/2)
+        local event, p1, p2, p3 = os.pullEvent()
+        
+        if event == "mouse_click" then
+            local btn, x, y = p1, p2, p3
             
-            if y == by+6 then
-                if x >= bx+3 and x <= bx+7 then
-                    showModal.onYes()
-                    showModal = nil
-                    loadLocalDB()
-                    selectedApp = nil
-                elseif x >= bx+bw-8 and x <= bx+bw-4 then
-                    showModal = nil
+            if showModal then
+                local bw, bh = 26, 8
+                local bx, by = math.floor((w-bw)/2), math.floor((h-bh)/2)
+                if y == by+6 then
+                    if x >= bx+3 and x <= bx+7 then
+                        showModal.onYes()
+                        showModal = nil; loadLocalDB(); selectedApp = nil
+                    elseif x >= bx+bw-8 and x <= bx+bw-4 then
+                        showModal = nil
+                    end
                 end
-            end
-            
-        elseif y <= 3 then
-            if x < w/2 then currentTab = "install" 
-            else currentTab = "installed" end
-            selectedApp = nil
-            
-        else
-            for _, app in ipairs(visibleList) do
-                if y == app.y then
-                    selectedApp = app
-                    
-                    if currentTab == "install" then
-                        if x >= app.btnX then
-                            showModal = {
-                                text = "Install " .. app.name .. "?",
-                                onYes = function() performInstall(app) end
-                            }
-                        end
-                    else
-                        if x >= app.remX then
-                            showModal = {
-                                text = "Delete " .. app.name .. "?",
-                                onYes = function() performUninstall(app.id) end
-                            }
-                        elseif x >= app.verX and x < app.remX then
-                            performVerify(app.id, localData[app.id])
+                
+            elseif y <= 3 then
+                if x < w/2 then currentTab = "install" 
+                else currentTab = "installed" end
+                selectedApp = nil
+                
+            else
+                for _, app in ipairs(visibleList) do
+                    if y == app.y then
+                        selectedApp = app
+                        if currentTab == "install" then
+                            if x >= app.btnX then
+                                showModal = { text = "Install " .. app.name .. "?", onYes = function() performInstall(app) end }
+                            end
+                        else
+                            if x >= app.remX then
+                                showModal = { text = "Delete " .. app.name .. "?", onYes = function() performUninstall(app.id) end }
+                            elseif x >= app.verX and x < app.remX then
+                                performVerify(app.id, localData[app.id])
+                            end
                         end
                     end
                 end
             end
         end
     end
+end
+
+local ok, err = pcall(main)
+if not ok then
+    term.setBackgroundColor(colors.black)
+    term.setTextColor(colors.red)
+    term.clear()
+    print("Store Error:\n" .. tostring(err))
+    print("\nPress Enter to exit.")
+    read()
 end

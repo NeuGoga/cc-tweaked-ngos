@@ -5,6 +5,7 @@ local criticalFiles = {
     "/startup.lua",
     "/ngos/system/kernel.lua",
     "/ngos/system/security.lua",
+    "/ngos/system/theme.lua",
     "/ngos/bin/desktop.lua",
     "/ngos/bin/store.lua",
     "/ngos/bin/settings.lua",

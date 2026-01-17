@@ -1,81 +1,86 @@
 local w, h = term.getSize()
 local security = require("ngos.system.security")
 
-sleep(0.2)
+sleep(0.1)
 
-local UPDATE_URL = "https://raw.githubusercontent.com/NeuGoga/cc-tweaked-ngos/main/os_manifest.json"
+local themeNames = { "standard", "hacker", "ocean", "retro", "dark" }
+local themeIndex = 1
 
-local C_BG = colors.black
-local C_TITLE = colors.cyan
-local C_TEXT = colors.white
-local C_BTN_TEXT = colors.lime
-local C_BTN_ACCENT = colors.gray
-local C_WARN = colors.orange
-local C_OFF = colors.red
+local currentBg = ngos.theme.bg
+local currentAccent = ngos.theme.accent
+
+for i, name in ipairs(themeNames) do
+    local preset = ngos.themeLib.getPreset(name)
+    if preset.bg == currentBg and preset.accent == currentAccent then
+        themeIndex = i
+        break
+    end
+end
 
 local function drawMenu()
-    term.setBackgroundColor(C_BG)
+    local T = ngos.theme
+    
+    term.setBackgroundColor(colors.black)
     term.clear()
     
-    term.setCursorPos(1,1)
-    term.setTextColor(C_TITLE)
-    term.write("System Settings")
-    
-    term.setCursorPos(1,2)
-    term.setTextColor(C_BTN_ACCENT)
-    term.write(string.rep("-", w))
+    term.setCursorPos(1,1); term.setTextColor(T.accent); term.write("System Settings")
+    term.setCursorPos(1,2); term.setTextColor(colors.gray); term.write(string.rep("-", w))
 
     local startY = 4
     
     term.setCursorPos(2, startY)
-    term.setTextColor(C_BTN_ACCENT); term.write("[ ")
-    term.setTextColor(C_BTN_TEXT); term.write("Check for Updates")
-    term.setTextColor(C_BTN_ACCENT); term.write(" ]")
+    term.setTextColor(colors.gray); term.write("[ ")
+    term.setTextColor(colors.white); term.write("Check for Updates")
+    term.setTextColor(colors.gray); term.write(" ]")
     
     local isSecured = security.isEnabled()
     term.setCursorPos(2, startY + 2)
-    term.setTextColor(C_BTN_ACCENT); term.write("[ ")
-    term.setTextColor(C_TEXT); term.write("Protected Boot: ")
-    if isSecured then
-        term.setTextColor(C_BTN_TEXT); term.write("ON ")
-    else
-        term.setTextColor(C_OFF); term.write("OFF")
-    end
-    term.setTextColor(C_BTN_ACCENT); term.write(" ]")
+    term.setTextColor(colors.gray); term.write("[ ")
+    term.setTextColor(colors.white); term.write("Protected Boot: ")
+    term.setTextColor(isSecured and T.accent or T.err); term.write(isSecured and "ON " or "OFF")
+    term.setTextColor(colors.gray); term.write(" ]")
     
     term.setCursorPos(2, startY + 4)
-    term.setTextColor(C_BTN_ACCENT); term.write("[ ")
-    term.setTextColor(C_WARN); term.write("Reboot System")
-    term.setTextColor(C_BTN_ACCENT); term.write(" ]")
+    term.setTextColor(colors.gray); term.write("[ ")
+    term.setTextColor(colors.white); term.write("Theme: ")
+    term.setTextColor(T.accent); term.write(themeNames[themeIndex]:upper())
+    term.setTextColor(colors.gray); term.write(" ]")
+    
+    term.setCursorPos(2, startY + 6)
+    term.setTextColor(colors.gray); term.write("[ ")
+    term.setTextColor(T.warn); term.write("Reboot System")
+    term.setTextColor(colors.gray); term.write(" ]")
 
     term.setCursorPos(2, h-1); term.setTextColor(colors.gray); term.write("NgOS v" .. ngos.version)
 end
 
-local function runUpdate()
-    dofile("/ngos/bin/updater.lua")
-    drawMenu()
-end
-
-local function toggleSecurity()
-    local isSecured = security.isEnabled()
+local function toggleTheme()
+    themeIndex = themeIndex + 1
+    if themeIndex > #themeNames then themeIndex = 1 end
     
-    if isSecured then
-        security.disableProtection()
-    else
-        security.enableProtection()
-    end
+    local newName = themeNames[themeIndex]
+    local newColors = ngos.themeLib.getPreset(newName)
+    
+    ngos.themeLib.save(newColors)
+    
     drawMenu()
 end
 
 while true do
     drawMenu()
     local event, btn, x, y = os.pullEvent("mouse_click")
-        
+    
     if y == 4 then
-        runUpdate()
+        dofile("/ngos/bin/updater.lua")
     elseif y == 6 then
-        toggleSecurity()
+        if security.isEnabled() then security.disableProtection() else security.enableProtection() end
     elseif y == 8 then
+        toggleTheme()
+        sleep(0.25)
+        os.queueEvent("clear_queue")
+        os.pullEvent("clear_queue")
+        
+    elseif y == 10 then
         os.reboot()
     end
 end

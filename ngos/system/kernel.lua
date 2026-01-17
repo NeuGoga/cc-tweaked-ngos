@@ -25,6 +25,13 @@ end
 
 _G.ngos.version = loadOSVersion()
 
+local themeLib = dofile("/ngos/system/theme.lua")
+themeLib.load()
+_G.ngos.theme = setmetatable({}, {
+    __index = function(t, k) return themeLib.colors[k] end
+})
+_G.ngos.themeLib = themeLib
+
 local resources = { monitor = nil, speaker = nil }
 
 function _G.ngos.claim(deviceType, processId)
@@ -74,6 +81,8 @@ local function killProcess(proc)
 end
 
 local function drawOverlay()
+    local T = _G.ngos.theme
+
     local currentWindow = activeProcess and activeProcess.window or desktopWindow
     local _, _, bgLine = currentWindow.getLine(1)
     local bgAtMin = string.sub(bgLine, w-1, w-1)
@@ -105,24 +114,26 @@ local function drawOverlay()
         local startX = math.floor((w - boxW) / 2)
         local startY = math.floor((h - boxH) / 2)
         
-        paintutils.drawFilledBox(startX, startY, startX + boxW, startY + boxH, colors.black)
+        -- paintutils.drawFilledBox(startX+1, startY+1, startX + boxW+1, startY + boxH+1, colors.black)
+        
+        paintutils.drawFilledBox(startX, startY, startX + boxW, startY + boxH, T.header)
         
         term.setCursorPos(startX, startY)
-        term.setBackgroundColor(colors.cyan)
-        term.setTextColor(colors.black)
+        term.setBackgroundColor(T.accent)
+        term.setTextColor(T.bg)
         local title = " Running Apps"
         term.write(title .. string.rep(" ", boxW - #title))
         
         term.setCursorPos(startX + boxW, startY)
-        term.setBackgroundColor(colors.red)
+        term.setBackgroundColor(T.err)
         term.setTextColor(colors.white)
         term.write("X")
         
         for i, proc in ipairs(processes) do
             local lineY = startY + 1 + i
             term.setCursorPos(startX, lineY)
-            term.setBackgroundColor(colors.black)
-            term.setTextColor(colors.white)
+            term.setBackgroundColor(T.header)
+            term.setTextColor(T.headerText)
             
             term.write(string.rep(" ", boxW))
             
@@ -130,7 +141,7 @@ local function drawOverlay()
             term.write(" " .. getAppName(proc.path))
             
             term.setCursorPos(startX + boxW - 1, lineY)
-            term.setTextColor(colors.orange)
+            term.setTextColor(T.warn)
             term.write("x")
         end
     end
@@ -229,7 +240,9 @@ while true do
                             activeProcess = proc
                             desktopWindow.setVisible(false)
                             nativeTerm.setBackgroundColor(colors.black); nativeTerm.clear()
-                            activeProcess.window.setVisible(true); activeProcess.window.redraw()
+                            activeProcess.window.setVisible(true)
+                            sleep(0.3)
+                            activeProcess.window.redraw()
                         end
                     end
                 end

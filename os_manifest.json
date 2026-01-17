@@ -1,5 +1,5 @@
 {
-  "version": "1.7.0",
+  "version": "1.7.3",
   "files": {
     "/startup.lua": {
       "url": "https://raw.githubusercontent.com/NeuGoga/cc-tweaked-ngos/main/startup.lua",
@@ -7,11 +7,15 @@
     },
     "/ngos/system/kernel.lua": {
       "url": "https://raw.githubusercontent.com/NeuGoga/cc-tweaked-ngos/main/ngos/system/kernel.lua",
-      "sha256": "058e0d300263ba9abb565d327fe36cc5706253465ff9327bb951732daca0cc53"
+      "sha256": "ad0d62181828fae7ee084573b459d06be9927e0f7e750bd65f197cc53f8b581c"
     },
     "/ngos/system/security.lua": {
       "url": "https://raw.githubusercontent.com/NeuGoga/cc-tweaked-ngos/main/ngos/system/security.lua",
       "sha256": "c70ea01d4b5c8c2490c6f4dcf12c86816a584cfa0f249c2d74c09c8fbf07e6ed"
+    },
+    "/ngos/system/theme.lua": {
+      "url": "https://raw.githubusercontent.com/NeuGoga/cc-tweaked-ngos/main/ngos/system/theme.lua",
+      "sha256": "01d0f7da47fc38b56e5f5735567bf89b93849bc5e1a1658e2097ff02de8cb79c"
     },
     "/ngos/lib/sha256.lua": {
       "url": "https://raw.githubusercontent.com/NeuGoga/cc-tweaked-ngos/main/ngos/lib/sha256.lua",
@@ -19,15 +23,15 @@
     },
     "/ngos/bin/desktop.lua": {
       "url": "https://raw.githubusercontent.com/NeuGoga/cc-tweaked-ngos/main/ngos/bin/desktop.lua",
-      "sha256": "b825de63389a564b049b6943297736c95e2187853f619cca8a2661131f3cb6c9"
+      "sha256": "2bd05cf661b28b0ee37a2489aa1aaf7f811bb8d9599ea579de55fb3e58d76b5e"
     },
     "/ngos/bin/store.lua": {
       "url": "https://raw.githubusercontent.com/NeuGoga/cc-tweaked-ngos/main/ngos/bin/store.lua",
-      "sha256": "9c1726622319d3be65413aad042399d82d8ba42fa2c7b39041d5ff3e808cd461"
+      "sha256": "fede9a1686ce5f36205939d0cdf79b0d73382df9785ab2ddb71d05356ab6869c"
     },
     "/ngos/bin/settings.lua": {
       "url": "https://raw.githubusercontent.com/NeuGoga/cc-tweaked-ngos/main/ngos/bin/settings.lua",
-      "sha256": "a2c33d13bf327acfdf8f799e4047580c8a5386660187fb01500638ec0a673ec4"
+      "sha256": "040a5f69076010f4e73d40e803d48348acc5aa5f80d0c19aacaf34637d050711"
     },
     "/ngos/bin/updater.lua": {
       "url": "https://raw.githubusercontent.com/NeuGoga/cc-tweaked-ngos/main/ngos/bin/updater.lua",
@@ -35,7 +39,7 @@
     },
     "/ngos/bin/gen_digest.lua": {
       "url": "https://raw.githubusercontent.com/NeuGoga/cc-tweaked-ngos/main/ngos/bin/gen_digest.lua",
-      "sha256": "838cc4801238a218473d8e7dbe28af69f39d11547e3976d6478a64ecc20c6254" 
+      "sha256": "01a2e051053d7a2b55c1ec1adfc1aa8cb501296b0c9366ef5b8680175b3ea9be" 
     }
   }
 }

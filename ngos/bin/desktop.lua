@@ -1,52 +1,50 @@
 local w, h = term.getSize()
 local selectedAppIndex = 0
 
--- Colors
-local BG_COLOR = colors.gray
-local BAR_COLOR = colors.lightGray
-local ICON_COLOR = colors.blue
-local TEXT_COLOR = colors.white
-
 -- Scan for Apps
 local function getApps()
     local apps = {}
-    
-    -- Check if /apps exists
     if not fs.exists("/apps") then fs.makeDir("/apps") end
-    
     local files = fs.list("/apps")
     for _, file in ipairs(files) do
         if fs.isDir(fs.combine("/apps", file)) then
             table.insert(apps, {
                 name = file,
-                path = "/apps/" .. file .. "/app.lua" -- Standard entry point
+                path = "/apps/" .. file .. "/app.lua"
             })
         end
     end
     return apps
 end
 
--- Draw the Interface
 local function drawIcon(x, y, label, isSelected)
+    local T = ngos.theme
+    
     if isSelected then
-        paintutils.drawFilledBox(x, y, x+6, y+3, colors.cyan)
+        paintutils.drawFilledBox(x, y, x+6, y+3, T.header)
     else
-        paintutils.drawFilledBox(x, y, x+6, y+3, ICON_COLOR)
+        paintutils.drawFilledBox(x, y, x+6, y+3, T.accent)
     end
     
     -- Draw Initial
-    term.setTextColor(colors.white)
+    term.setTextColor(T.headerText)
     term.setCursorPos(x+3, y+1)
     term.write(string.sub(label, 1, 1):upper())
     
     -- Draw Label below
-    term.setBackgroundColor(BG_COLOR)
+    term.setBackgroundColor(T.bg)
+    term.setTextColor(T.text)
     term.setCursorPos(x, y+4)
     local shortName = string.sub(label, 1, 7)
     term.write(shortName)
 end
 
 local function drawDesktop(appList)
+    local T = ngos.theme
+    local BG_COLOR = T.bg
+    local BAR_COLOR = T.header
+    local TEXT_COLOR = T.headerText
+
     term.setBackgroundColor(BG_COLOR)
     term.clear()
     
@@ -54,8 +52,7 @@ local function drawDesktop(appList)
     term.setCursorPos(1,1)
     term.clearLine()
     
-    term.setBackgroundColor(BAR_COLOR)
-    term.setTextColor(colors.black)
+    term.setTextColor(TEXT_COLOR)
     term.setCursorPos(1, 1) 
     term.write("NgOS")
     
@@ -80,7 +77,7 @@ end
 
 -- Main Loop
 local appList = getApps()
-local clockTimer = os.startTimer(10)
+local clockTimer = os.startTimer(2)
 
 while true do
     drawDesktop(appList)
@@ -111,6 +108,6 @@ while true do
         end
         
     elseif event == "timer" and p1 == clockTimer then
-        clockTimer = os.startTimer(10)
+        clockTimer = os.startTimer(2)
     end
 end
