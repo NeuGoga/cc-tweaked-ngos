@@ -17,6 +17,8 @@ local remoteData = {}
 local selectedApp = nil
 local showModal = nil 
 
+local sha256 = require("ngos.lib.sha256")
+
 -- ==========================================
 -- Data Management
 -- ==========================================
@@ -84,35 +86,172 @@ local function performInstall(appEntry)
     if not fs.exists(installDir) then fs.makeDir(installDir) end
     
     print("Downloading files...")
-    for localName, remoteUrl in pairs(manifest.files) do
+    local hasErrors = false
+
+    for localName, remoteData in pairs(manifest.files) do
+        term.setTextColor(C_TEXT)
         term.write(" - " .. localName .. " ")
         
-        local fileResp = http.get(remoteUrl)
-        if fileResp then
-            local targetPath = fs.combine(installDir, localName)
-            local parentDir = fs.getDir(targetPath)
-            if not fs.exists(parentDir) then fs.makeDir(parentDir) end
-            
-            local f = fs.open(targetPath, "w")
-            f.write(fileResp.readAll())
-            f.close()
-            fileResp.close()
-            print("OK")
+        local url = ""
+        local expectedHash = nil
+        
+        if type(remoteData) == "table" then
+            url = remoteData.url
+            expectedHash = remoteData.sha256
         else
-            print("FAIL")
+            url = remoteData -- Old format (just a string URL)
+        end
+        
+        local fileResp = http.get(url)
+        if fileResp then
+            local content = fileResp.readAll()
+            fileResp.close()
+            
+            local verified = true
+            
+            if expectedHash then
+                -- Normalize newlines before hashing to match online tools
+                local cleanContent = content:gsub("\r", "")
+                local actualHash = sha256.hex(cleanContent)
+                
+                if actualHash ~= expectedHash then
+                    verified = false
+                    hasErrors = true
+                    term.setTextColor(colors.red)
+                    print("[HASH FAIL]")
+                    print("   Exp: " .. expectedHash:sub(1,8))
+                    print("   Got: " .. actualHash:sub(1,8))
+                    sleep(1)
+                end
+            else
+                -- Warn but allow
+                term.setTextColor(colors.gray)
+                write("[UNSIGNED] ")
+            end
+            
+            if verified then
+                local targetPath = fs.combine(installDir, localName)
+                local parentDir = fs.getDir(targetPath)
+                if not fs.exists(parentDir) then fs.makeDir(parentDir) end
+                
+                local f = fs.open(targetPath, "w")
+                f.write(content)
+                f.close()
+                
+                if expectedHash then
+                    term.setTextColor(colors.lime)
+                    print("[OK]")
+                else
+                    term.setTextColor(colors.white)
+                    print("Saved")
+                end
+            else
+                term.setTextColor(colors.red)
+                print("Skipped (Security)")
+            end
+        else
+            term.setTextColor(colors.red)
+            print("[DOWNLOAD FAIL]")
+            hasErrors = true
         end
     end
     
-    -- Update Local DB
-    localData[appEntry.id] = {
-        name = appEntry.name,
-        version = manifest.version,
-        manifestUrl = appEntry.manifest
-    }
-    saveLocalDB()
+    if not hasErrors then
+        localData[appEntry.id] = {
+            name = appEntry.name,
+            version = manifest.version,
+            manifestUrl = appEntry.manifest
+        }
+        saveLocalDB()
+        term.setTextColor(colors.lime)
+        print("\nSuccess! App installed.")
+    else
+        term.setTextColor(colors.orange)
+        print("\nFinished with errors.")
+    end
     
-    print("\nSuccess! App installed.")
     sleep(1)
+end
+
+local function performVerify(appId, appEntry)
+    if not appEntry then return end
+
+    term.setBackgroundColor(C_BG)
+    term.clear()
+    term.setCursorPos(1,1)
+    
+    local displayName = appEntry.name or appId
+    print("Verifying " .. displayName .. "...")
+    
+    if not appEntry.manifestUrl then
+        print("Error: Corrupt install data (no URL).")
+        sleep(2)
+        return
+    end
+    
+    local resp = http.get(appEntry.manifestUrl)
+    if not resp then print("Error: Offline."); sleep(2); return end
+    
+    local manifest = textutils.unserializeJSON(resp.readAll())
+    resp.close()
+    
+    if not manifest or not manifest.files then print("Error: Bad manifest."); sleep(2); return end
+    
+    local installDir = "/apps/" .. appId
+    local issues = 0
+    
+    print("Checking Integrity...")
+    
+    for localName, remoteData in pairs(manifest.files) do
+        term.setTextColor(C_TEXT)
+        term.write(" " .. localName .. " ")
+        
+        local fullPath = fs.combine(installDir, localName)
+        
+        local expectedHash = nil
+        if type(remoteData) == "table" then
+            expectedHash = remoteData.sha256
+        end
+        
+        if not fs.exists(fullPath) then
+            term.setTextColor(colors.red)
+            print("[MISSING]")
+            issues = issues + 1
+        elseif expectedHash then
+            local f = fs.open(fullPath, "r")
+            local content = f.readAll()
+            f.close()
+            
+            local cleanContent = content:gsub("\r", "")
+            local actualHash = sha256.hex(cleanContent)
+            
+            if actualHash == expectedHash then
+                term.setTextColor(colors.lime)
+                print("[OK]")
+            else
+                term.setTextColor(colors.red)
+                print("[MODIFIED]")
+                issues = issues + 1
+            end
+        else
+            term.setTextColor(colors.gray)
+            print("[NO HASH]")
+        end
+    end
+    
+    term.setTextColor(C_TEXT)
+    print(string.rep("-", 20))
+    if issues == 0 then
+        term.setTextColor(colors.lime)
+        print("Integrity Verified.")
+    else
+        term.setTextColor(colors.red)
+        print("Found " .. issues .. " issues.")
+        print("Recommendation: Reinstall.")
+    end
+    
+    print("\nPress Enter to return.")
+    read()
 end
 
 local function performUninstall(appId)
@@ -155,9 +294,7 @@ local function drawList()
     
     if currentTab == "install" then
         for _, app in ipairs(remoteData) do
-            if not localData[app.id] then
-                table.insert(listToDraw, app)
-            end
+            if not localData[app.id] then table.insert(listToDraw, app) end
         end
     else
         for id, info in pairs(localData) do
@@ -168,11 +305,7 @@ local function drawList()
     if #listToDraw == 0 then
         term.setCursorPos(3, 6)
         term.setTextColor(colors.gray)
-        if currentTab == "install" then
-            term.write("No new apps found.")
-        else
-            term.write("No apps installed.")
-        end
+        term.write(currentTab == "install" and "No new apps." or "No apps installed.")
     end
 
     for i, app in ipairs(listToDraw) do
@@ -187,18 +320,29 @@ local function drawList()
             term.write("  " .. app.name)
         end
         
-        local btnText = ""
         if currentTab == "install" then
-            btnText = "[ Install ]"
+            local btnText = "[ Install ]"
+            app.btnX = w - #btnText - 1
+            
+            term.setCursorPos(app.btnX, y)
+            term.setTextColor(colors.blue)
+            term.write(btnText)
         else
-            btnText = "[ Uninstall ]"
+            local txtRem = "[ Remove ]"
+            local txtVer = "[ Verify ]"
+            
+            app.remX = w - #txtRem - 1
+            app.verX = app.remX - #txtVer - 1
+            
+            term.setCursorPos(app.verX, y)
+            term.setTextColor(colors.cyan)
+            term.write(txtVer)
+            
+            term.setCursorPos(app.remX, y)
+            term.setTextColor(colors.red)
+            term.write(txtRem)
         end
         
-        term.setCursorPos(w - #btnText - 1, y)
-        term.setTextColor(currentTab == "install" and colors.blue or colors.red)
-        term.write(btnText)
-        
-        app.btnX = w - #btnText - 1
         app.y = y
         y = y + 2
     end
@@ -249,12 +393,10 @@ while true do
             local bw, bh = 26, 8
             local bx, by = math.floor((w-bw)/2), math.floor((h-bh)/2)
             
-            -- Modal Interaction
             if y == by+6 then
                 if x >= bx+3 and x <= bx+7 then
                     showModal.onYes()
                     showModal = nil
-                    -- Refresh Data
                     loadLocalDB()
                     selectedApp = nil
                 elseif x >= bx+bw-8 and x <= bx+bw-4 then
@@ -263,7 +405,6 @@ while true do
             end
             
         elseif y <= 3 then
-            -- Tab Interaction
             if x < w/2 then currentTab = "install" 
             else currentTab = "installed" end
             selectedApp = nil
@@ -273,23 +414,25 @@ while true do
                 if y == app.y then
                     selectedApp = app
                     
-                    if x >= app.btnX then
-                        if currentTab == "install" then
+                    if currentTab == "install" then
+                        if x >= app.btnX then
                             showModal = {
                                 text = "Install " .. app.name .. "?",
                                 onYes = function() performInstall(app) end
                             }
-                        else
+                        end
+                    else
+                        if x >= app.remX then
                             showModal = {
-                                text = "Uninstall " .. app.name .. "?",
+                                text = "Delete " .. app.name .. "?",
                                 onYes = function() performUninstall(app.id) end
                             }
+                        elseif x >= app.verX and x < app.remX then
+                            performVerify(app.id, localData[app.id])
                         end
                     end
                 end
             end
         end
-    elseif event == "key" then
-        -- Future update
     end
 end

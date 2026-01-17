@@ -283,7 +283,22 @@ while true do
             activeProcess = proc
             nativeTerm.setBackgroundColor(colors.black); nativeTerm.clear()
             activeProcess.window.setVisible(true)
-            term.redirect(activeProcess.window); coroutine.resume(activeProcess.routine); activeProcess.window.redraw()
+            term.redirect(activeProcess.window);
+            local ok, err = coroutine.resume(activeProcess.routine)
+            if not ok then
+                term.redirect(nativeTerm)
+                term.setBackgroundColor(colors.blue); term.clear(); term.setCursorPos(1,1)
+                print("App Crashed on Launch!")
+                print(tostring(err))
+                print("\nPress Enter to return.")
+                read()
+                
+                killProcess(proc)
+                activeProcess = nil
+                desktopWindow.setVisible(true); desktopWindow.redraw()
+            else
+                activeProcess.window.redraw()
+            end
         else
             showToast("Load Error", colors.red)
         end
