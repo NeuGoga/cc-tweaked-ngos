@@ -61,8 +61,16 @@ if manifest.version == currentVer then
     
     term.setTextColor(C_TEXT)
     write("\n Force update anyway? (y/n): ")
+    term.setCursorBlink(true)
+    sleep(0.1)
     local input = read()
-    if input ~= "y" then return end
+    term.setCursorBlink(false)
+    
+    if string.lower(input) ~= "y" then 
+        print("\nCancelled.")
+        sleep(1)
+        return 
+    end
 else
     printStatus("\n New version found: " .. manifest.version, C_OK)
     printStatus(" Press [Enter] to install...", C_TEXT)
