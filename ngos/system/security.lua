@@ -67,11 +67,19 @@ function security.checkIntegrity()
     
     if not fs.exists(DIGEST_FILE) then
         term.setTextColor(colors.orange)
-        print("Warning: No digest found.")
-        print("Skipping check.")
-        sleep(1)
-        term.setTextColor(colors.white)
-        return true
+        print("System Digest missing.")
+        print("Initializing security...")
+        
+        if fs.exists("/ngos/bin/gen_digest.lua") then
+            dofile("/ngos/bin/gen_digest.lua")
+            sleep(1)
+            term.setBackgroundColor(colors.black); term.clear(); term.setCursorPos(1,1)
+            print("NgOS Boot Guard")
+        else
+            print("Error: Generator not found.")
+            sleep(2)
+            return true
+        end
     end
     
     local f = fs.open(DIGEST_FILE, "r")

@@ -115,6 +115,12 @@ f.write(textutils.serializeJSON(infoData))
 f.close()
 
 printStatus("\n Update Complete!", C_OK)
+
+if fs.exists("/ngos/bin/gen_digest.lua") then
+    printStatus(" Updating Security Digest...", C_DIM)
+    dofile("/ngos/bin/gen_digest.lua")
+end
+
 printStatus(" System will reboot in 3 seconds.", C_TEXT)
 sleep(3)
 os.reboot()
