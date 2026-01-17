@@ -31,7 +31,11 @@
     },
     "/ngos/bin/updater.lua": {
       "url": "https://raw.githubusercontent.com/NeuGoga/cc-tweaked-ngos/main/ngos/bin/updater.lua",
-      "sha256": "9e872aa6b5a054f2d0635b990162e4736324cc36b0fa75864dec2e2135a7107d"
+      "sha256": "b1f59f587c0427dd8ed959370a4116efa81a6b9ac8bc1fe4d13e1b3f43825a28"
+    },
+    "/ngos/bin/gen_digest.lua": {
+      "url": "https://raw.githubusercontent.com/NeuGoga/cc-tweaked-ngos/main/ngos/bin/gen_digest.lua",
+      "sha256": "838cc4801238a218473d8e7dbe28af69f39d11547e3976d6478a64ecc20c6254" 
     }
   }
 }
