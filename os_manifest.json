@@ -1,5 +1,5 @@
 {
-  "version": "1.7.5",
+  "version": "1.7.6",
   "files": {
     "/startup.lua": {
       "url": "https://raw.githubusercontent.com/NeuGoga/cc-tweaked-ngos/main/startup.lua",
@@ -15,7 +15,7 @@
     },
     "/ngos/system/theme.lua": {
       "url": "https://raw.githubusercontent.com/NeuGoga/cc-tweaked-ngos/main/ngos/system/theme.lua",
-      "sha256": "01d0f7da47fc38b56e5f5735567bf89b93849bc5e1a1658e2097ff02de8cb79c"
+      "sha256": "85cd87f25f0d72e1062b904ed20fb4ff0be59a1be083d0f53df99d9df4eeb64a"
     },
     "/ngos/lib/sha256.lua": {
       "url": "https://raw.githubusercontent.com/NeuGoga/cc-tweaked-ngos/main/ngos/lib/sha256.lua",

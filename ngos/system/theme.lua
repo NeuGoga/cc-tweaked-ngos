@@ -36,7 +36,7 @@ local presets = {
         header = colors.green,
         headerText = colors.black,
         accent = colors.lime,
-        warn = colors.green,
+        warn = colors.red,
         err = colors.red
     },
     retro = {
